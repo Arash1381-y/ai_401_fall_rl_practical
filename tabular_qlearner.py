@@ -36,10 +36,12 @@ def info_state_to_board(time_step):
     board = np.reshape(board, (3, 3))
     return board
 
+
 reward_mask = np.array([[0, 1, 0],
                         [1, 0, 1],
                         [0, 0, 0]])
 reward_mask_count = np.sum(reward_mask)
+
 
 def valuedict():
     #: The default factory is called without arguments to produce a new value when a key is not present, in __getitem__ only.
@@ -51,13 +53,13 @@ class QLearner(rl_agent.AbstractAgent):
     """Tabular Q-Learning agent."""
 
     def __init__(
-        self,
-        player_id,
-        num_actions,
-        step_size=0.1,
-        epsilon_schedule=rl_tools.ConstantSchedule(0.2),
-        discount_factor=1.0,
-        centralized=False,
+            self,
+            player_id,
+            num_actions,
+            step_size=0.1,
+            epsilon_schedule=rl_tools.ConstantSchedule(0.2),
+            discount_factor=1.0,
+            centralized=False,
     ):
         """Initialize the Q-Learning agent."""
         self._player_id = player_id
@@ -86,7 +88,15 @@ class QLearner(rl_agent.AbstractAgent):
         """
         probs = np.zeros(self._num_actions)
 
-        # @fillMe
+        if np.random.random() < epsilon:
+            # probs for every action is same
+            probs[legal_actions] = 1 / len(legal_actions)
+
+        else:
+            # probs for action with most q-value is 1, and 0 for others
+            q_values = np.array([self._q_values[info_state][a] for a in legal_actions])
+            best_action = legal_actions[np.argmax(q_values)]
+            probs[best_action] = 1
 
         action = np.random.choice(range(self._num_actions), p=probs)
         return action, probs
@@ -113,7 +123,7 @@ class QLearner(rl_agent.AbstractAgent):
         Args:
           time_step: an instance of rl_environment.TimeStep.
           is_evaluation: bool, whether this is a training or evaluation call.
-
+          top1: bool, whether to use top1 or topk for the loss.
         Returns:
           A `rl_agent.StepOutput` containing the action probs and chosen action.
         """
@@ -135,7 +145,20 @@ class QLearner(rl_agent.AbstractAgent):
 
         # Learn step: don't learn during evaluation or at first agent steps.
         if self._prev_info_state and not is_evaluation:
-            # @fillMe
+            # Update q-values using the previous info state and action.
+            reward = time_step.rewards[self._player_id]
+            if time_step.last():
+                target = reward
+            else:
+                target = reward + self._discount_factor * max(
+                    self._q_values[info_state].values()
+                )
+            self._q_values[self._prev_info_state][self._prev_action] += self._step_size * (
+                    target - self._q_values[self._prev_info_state][self._prev_action]
+            )
+
+            # Update loss value
+            self._last_loss_value = self._q_values[self._prev_info_state][self._prev_action] - target
 
             # Decay epsilon, if necessary.
             self._epsilon = self._epsilon_schedule.step()
@@ -149,7 +172,6 @@ class QLearner(rl_agent.AbstractAgent):
             self._prev_info_state = info_state
             self._prev_action = action
         return rl_agent.StepOutput(action=action, probs=probs)
-
 
 # Local Variables:
 # tab-width: 4
