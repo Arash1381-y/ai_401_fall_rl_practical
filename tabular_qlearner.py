@@ -44,7 +44,8 @@ reward_mask_count = np.sum(reward_mask)
 
 
 def valuedict():
-    #: The default factory is called without arguments to produce a new value when a key is not present, in __getitem__ only.
+    #: The default factory is called without arguments to produce a new value when a key is not present,
+    # in __getitem__ only.
     #: This value is added to the dict, so modifying it will modify the dict.
     return collections.defaultdict(float)
 
@@ -72,6 +73,7 @@ class QLearner(rl_agent.AbstractAgent):
         self._q_values = collections.defaultdict(valuedict)
         self._prev_info_state = None
         self._last_loss_value = None
+        self._prev_action = None
 
     def _epsilon_greedy(self, info_state, legal_actions, epsilon):
         """Returns a valid epsilon-greedy action and valid action probs. (goes to a non-greedy state with probability epsilon, and to a greedy state with probability 1-epsilon)
@@ -131,6 +133,7 @@ class QLearner(rl_agent.AbstractAgent):
             info_state = str(time_step.observations["info_state"])
         else:
             info_state = str(time_step.observations["info_state"][self._player_id])
+
         legal_actions = time_step.observations["legal_actions"][self._player_id]
 
         # Prevent undefined errors if this agent never plays until terminal step
@@ -150,9 +153,15 @@ class QLearner(rl_agent.AbstractAgent):
             if time_step.last():
                 target = reward
             else:
-                target = reward + self._discount_factor * max(
-                    self._q_values[info_state].values()
-                )
+                # if there is any legal action, then we can use the q-values
+                if len(legal_actions) > 0:
+                    target = reward + self._discount_factor * max(
+                        self._q_values[info_state][a] for a in legal_actions
+                    )
+                # if there is no legal action, then we can't use the q-values
+                else:
+                    target = reward
+
             self._q_values[self._prev_info_state][self._prev_action] += self._step_size * (
                     target - self._q_values[self._prev_info_state][self._prev_action]
             )

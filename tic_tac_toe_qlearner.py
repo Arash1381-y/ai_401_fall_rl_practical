@@ -32,8 +32,9 @@ from open_spiel.python import rl_environment
 from open_spiel.python import rl_tools
 from open_spiel.python.algorithms import random_agent
 
-sys.path.append(os.path.dirname(os.path.realpath(__file__)))
 from tabular_qlearner import QLearner
+
+sys.path.append(os.path.dirname(os.path.realpath(__file__)))
 
 FLAGS = flags.FLAGS
 
@@ -74,7 +75,7 @@ def command_line_action(time_step):
 
 
 def eval_against_random_bots(
-    env, trained_agents, random_agents, num_episodes, show_non_wins=False, top1=False
+        env, trained_agents, random_agents, num_episodes, show_non_wins=False, top1=False
 ):
     """Evaluates `trained_agents` against `random_agents` for `num_episodes`."""
     wins = np.zeros(2)
@@ -104,7 +105,7 @@ def eval_against_random_bots(
                 wins[player_pos] += 1
             elif reward < 0:
                 losses[player_pos] += 1
-                if show_non_wins and losses[player_pos] <= 4: #: shows the first four losses
+                if show_non_wins and losses[player_pos] <= 4:  #: shows the first four losses
                     logging.info(f"\nnot won: {reward}")
                     for time_step in time_steps:
                         print(
@@ -142,8 +143,8 @@ def main(_):
     ]
 
     against_agents_dict = dict(
-      random_agents=random_agents,
-      qlearning_agents=agents,
+        random_agents=random_agents,
+        qlearning_agents=agents,
     )
 
     # 1. Train the agents
@@ -162,7 +163,8 @@ def main(_):
                     top1=last_episode_p,
                 )
                 logging.info(
-                    "Starting episode %s, win_rates %s, lose_rates %s against %s", cur_episode, win_rates, lose_rates, against_agents_key,
+                    "Starting episode %s, win_rates %s, lose_rates %s against %s", cur_episode, win_rates, lose_rates,
+                    against_agents_key,
                 )
         time_step = env.reset()
         while not time_step.last():
