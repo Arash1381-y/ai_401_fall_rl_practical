@@ -183,17 +183,13 @@ class QLearner(rl_agent.AbstractAgent):
         if self._prev_info_state and not is_evaluation:
             # Update q-values using the previous info state and action.
             reward = self._get_action_reward(time_step)
+
             if time_step.last():
                 target = reward
             else:
-                # if there is any legal action, then we can use the q-values
-                if len(legal_actions) > 0:
-                    target = reward + self._discount_factor * max(
-                        self._q_values[info_state][a] for a in legal_actions
-                    )
-                # if there is no legal action, then we can't use the q-values
-                else:
-                    target = reward
+                target = reward + self._discount_factor * max(
+                    [self._q_values[info_state][a] for a in legal_actions]
+                )
 
             self._q_values[self._prev_info_state][self._prev_action] += self._step_size * (
                     target - self._q_values[self._prev_info_state][self._prev_action]
