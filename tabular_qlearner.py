@@ -26,6 +26,22 @@ except:
     pass
 
 
+# reward_mask = np.array([[0, 1, 0],
+#                         [1, 0, 1],
+#                         [0, 0, 0]])
+#
+# flat_reward_mask = np.reshape(reward_mask, (9,))
+#
+#
+# def likeable_pattern(board):
+#     """Returns a reward if the board is likeable and 0 otherwise."""
+#     for i in range(9):
+#         if board[i] != flat_reward_mask[i]:
+#             return 0
+#
+#     return 1000
+#
+
 def info_state_to_board(time_step):
     info_state = time_step.observations["info_state"][0]
     x_locations = np.nonzero(info_state[9:18])[0]
@@ -35,12 +51,6 @@ def info_state_to_board(time_step):
     board[o_locations] = -1
     board = np.reshape(board, (3, 3))
     return board
-
-
-reward_mask = np.array([[0, 1, 0],
-                        [1, 0, 1],
-                        [0, 0, 0]])
-reward_mask_count = np.sum(reward_mask)
 
 
 def valuedict():
@@ -60,6 +70,7 @@ class QLearner(rl_agent.AbstractAgent):
             step_size=0.1,
             epsilon_schedule=rl_tools.ConstantSchedule(0.2),
             discount_factor=1.0,
+            rules=None,
             centralized=False,
     ):
         """Initialize the Q-Learning agent."""
@@ -74,6 +85,7 @@ class QLearner(rl_agent.AbstractAgent):
         self._prev_info_state = None
         self._last_loss_value = None
         self._prev_action = None
+        self._rules = rules
 
     def _epsilon_greedy(self, info_state, legal_actions, epsilon):
         """Returns a valid epsilon-greedy action and valid action probs. (goes to a non-greedy state with probability epsilon, and to a greedy state with probability 1-epsilon)
@@ -119,6 +131,27 @@ class QLearner(rl_agent.AbstractAgent):
         """
         return self._epsilon_greedy(info_state, legal_actions, epsilon)
 
+    def _get_action_reward(self, time_step):
+        """Returns the action reward.
+
+        Args:
+          time_step: an instance of rl_environment.TimeStep.
+        """
+        if time_step.rewards is None:
+            return 0.0
+        else:
+            extra_reward = 0
+            if self._rules:
+                # rules is array of rule which each of it is a lambda function which takes a board and returns a reward
+                # iterate over rules and sum up the rewards
+                board = time_step.observations["info_state"][0]
+                current_player_board = board[9:18] if self._player_id == 0 else board[18:]
+                # convert to int
+                current_player_board = np.array(current_player_board, dtype=int)
+                extra_reward = sum([rule(current_player_board) for rule in self._rules])
+
+            return time_step.rewards[self._player_id] + extra_reward
+
     def step(self, time_step, is_evaluation=False, top1=False):
         """Returns the action to be taken and updates the Q-values if needed.
 
@@ -149,7 +182,7 @@ class QLearner(rl_agent.AbstractAgent):
         # Learn step: don't learn during evaluation or at first agent steps.
         if self._prev_info_state and not is_evaluation:
             # Update q-values using the previous info state and action.
-            reward = time_step.rewards[self._player_id]
+            reward = self._get_action_reward(time_step)
             if time_step.last():
                 target = reward
             else:

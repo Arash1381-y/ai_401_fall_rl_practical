@@ -45,9 +45,24 @@ flags.DEFINE_boolean(
     "Whether to run an interactive play with the agent after training.",
 )
 
+reward_mask = np.array([[0, 1, 0],
+                        [1, 0, 1],
+                        [0, 0, 0]])
+
+flat_reward_mask = np.reshape(reward_mask, (9,))
+
+
+def likeable_pattern(board):
+    """Returns a reward if the board is likeable and 0 otherwise."""
+    for i in range(9):
+        if board[i] != flat_reward_mask[i]:
+            return 0
+
+    return 1000
+
 
 def pretty_board(time_step):
-    """Returns the board in `time_step` in a human readable format."""
+    """Returns the board in `time_step` in a human-readable format."""
     info_state = time_step.observations["info_state"][0]
     x_locations = np.nonzero(info_state[9:18])[0]
     o_locations = np.nonzero(info_state[18:])[0]
@@ -114,6 +129,7 @@ def eval_against_random_bots(
                             # flush=True,
                         )
 
+    print(f"wins: {wins}, losses: {losses}")
     return wins / num_episodes, losses / num_episodes
 
 
@@ -124,6 +140,8 @@ def main(_):
     env = rl_environment.Environment(game)
     num_actions = env.action_spec()["num_actions"]
 
+    # create a lambda function which get board as input and if its equal to mask reward return 1000
+
     agents = [
         QLearner(
             player_id=idx,
@@ -132,6 +150,7 @@ def main(_):
                 0.2,
             ),
             discount_factor=0.6,
+            rules=[likeable_pattern]
         )
         for idx in range(num_players)
     ]
